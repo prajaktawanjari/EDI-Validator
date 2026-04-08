@@ -279,6 +279,17 @@
   </header>
 
   <div class="card">
+    <details style="margin-bottom: 20px;">
+      <summary style="cursor: pointer; color: var(--muted); font-size: 0.85rem; user-select: none;">⚙️ API Settings (for network access)</summary>
+      <div style="margin-top: 10px; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+        <label for="api-url" style="text-transform: none; font-size: 0.85rem; color: var(--text); margin-bottom: 5px;">API Endpoint URL:</label>
+        <input type="text" id="api-url" value="http://127.0.0.1:8000" 
+          style="width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: var(--mono); font-size: 0.8rem;" 
+          placeholder="http://127.0.0.1:8000 or http://192.168.1.4:8000" />
+        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 5px;">💡 For local: <code>http://127.0.0.1:8000</code> | For network: <code>http://YOUR-IP:8000</code></p>
+      </div>
+    </details>
+    
     <label for="edi-input">EDI Message</label>
     <div class="editor-wrap">
       <pre id="edi-highlight" aria-hidden="true"></pre>
@@ -632,9 +643,12 @@ document.getElementById('btn-validate').addEventListener('click', async () => {
   const raw = document.getElementById('edi-input').value.trim();
   if (!raw) return;
   
+  // Get API URL from settings
+  const apiUrl = document.getElementById('api-url').value.trim() || 'http://127.0.0.1:8000';
+  
   // Call API validation
   try {
-    const response = await fetch('http://127.0.0.1:8000/validate', {
+    const response = await fetch(`${apiUrl}/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -653,10 +667,11 @@ document.getElementById('btn-validate').addEventListener('click', async () => {
     
     render(errs, warns);
   } catch (err) {
+    const apiUrl = document.getElementById('api-url').value.trim() || 'http://127.0.0.1:8000';
     const errMsg = [{
       segment: 'API',
       error: `Failed to connect to API: ${err.message}`,
-      suggestion: 'Make sure the API server is running at http://127.0.0.1:8000'
+      suggestion: `Make sure the API server is running at ${apiUrl} (Check ⚙️ API Settings above)`
     }];
     render(errMsg, []);
   }
