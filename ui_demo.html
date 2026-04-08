@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI Demo - Error Highlighting</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #0f1117;
+      color: #e2e8f0;
+    }
+    h1 { color: #6366f1; margin-bottom: 10px; }
+    h2 { color: #fb923c; margin-top: 30px; font-size: 1.2rem; }
+    .demo-section {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .code-block {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      border-radius: 6px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      margin: 10px 0;
+      overflow-x: auto;
+    }
+    .tag-normal {
+      color: #60a5fa;
+    }
+    .tag-error {
+      background: rgba(240, 70, 70, 0.15);
+      border: 2px solid #f04646;
+      border-radius: 4px;
+      padding: 2px 4px;
+      margin: -2px -4px;
+      display: inline-block;
+      box-shadow: 0 0 8px rgba(240, 70, 70, 0.3);
+      color: #60a5fa;
+    }
+    .error-box {
+      background: #1f0a0a;
+      border: 1px solid #7f1d1d;
+      border-left: 3px solid #f04646;
+      border-radius: 6px;
+      padding: 12px 15px;
+      margin: 10px 0;
+    }
+    .error-box .segment {
+      font-weight: 600;
+      color: #6366f1;
+      font-size: 0.9rem;
+    }
+    .error-box .message {
+      color: #e2e8f0;
+      margin: 5px 0;
+    }
+    .suggestion-box {
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(100, 116, 139, 0.1);
+      border-left: 3px solid #64748b;
+      border-radius: 4px;
+    }
+    .suggestion-box::before {
+      content: "💡 ";
+    }
+    .success {
+      background: #052e16;
+      border: 1px solid #166534;
+      color: #22c55e;
+      border-radius: 6px;
+      padding: 12px 15px;
+      margin: 10px 0;
+    }
+    .feature-list {
+      list-style: none;
+      padding: 0;
+    }
+    .feature-list li {
+      padding: 8px 0;
+      padding-left: 25px;
+      position: relative;
+    }
+    .feature-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #22c55e;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Enhanced UI Features Demo</h1>
+  <p style="color: #64748b; margin-top: -5px;">Visual demonstration of the new error highlighting and suggestion display</p>
+
+  <div class="demo-section">
+    <h2>✨ New Features</h2>
+    <ul class="feature-list">
+      <li><strong>Red Border Error Highlighting</strong> — Segments with errors are highlighted with glowing red borders</li>
+      <li><strong>Styled Suggestion Boxes</strong> — Suggestions displayed in visually distinct boxes with 💡 icons</li>
+      <li><strong>Real-time Visual Feedback</strong> — Error highlighting updates automatically when validation runs</li>
+      <li><strong>Clear Error State</strong> — Clear button removes all error highlighting</li>
+    </ul>
+  </div>
+
+  <div class="demo-section">
+    <h2>📝 Example: Error Segment Highlighting</h2>
+    <p style="color: #64748b; font-size: 0.9rem;">When validation finds errors, the affected segments are highlighted in the editor:</p>
+    
+    <div class="code-block">
+      <span class="tag-error">UNB</span>+UNOC:3+SENDER:ZZZ+RECEIVER:ZZZ+260408:1200+REF123'<br>
+      <span class="tag-normal">UNH</span>+1+IFTMIN:D:04A:UN:BIG14'<br>
+      <span class="tag-error">BGM</span>+999+ORD001+9'<br>
+      <span class="tag-normal">DTM</span>+137:20260408:102'<br>
+      <span class="tag-normal">NAD</span>+CZ+9SENDER:::91'<br>
+      <span class="tag-normal">NAD</span>+CN+9CONSIGNEE:::91'<br>
+      <span class="tag-normal">GID</span>+1+7:PK'<br>
+      <span class="tag-normal">CNT</span>+7:10:KGM'<br>
+      <span class="tag-normal">UNT</span>+8+1'<br>
+      <span class="tag-error">UNZ</span>+1+REF999'
+    </div>
+    
+    <p style="color: #f59e0b; font-size: 0.85rem; margin-top: 10px;">
+      ⚡ Notice: UNB, BGM, and UNZ segments have red borders and glowing shadows
+    </p>
+  </div>
+
+  <div class="demo-section">
+    <h2>💬 Example: Error Messages with Suggestions</h2>
+    
+    <div class="error-box">
+      <div class="segment">BGM</div>
+      <div class="message">BGM code '999' is invalid; must be one of [335, 610, 730].</div>
+      <div class="suggestion-box">Change to 610, 335, or 730.</div>
+    </div>
+
+    <div class="error-box">
+      <div class="segment">UNZ</div>
+      <div class="message">UNB and UNZ reference mismatch: UNB=REF123, UNZ=REF999</div>
+      <div class="suggestion-box">Ensure UNB element 5 and UNZ element 2 have the same control reference</div>
+    </div>
+
+    <div class="error-box">
+      <div class="segment">UNB</div>
+      <div class="message">Missing UNB (interchange header)</div>
+      <div class="suggestion-box">Add UNB segment at beginning, e.g. UNB+UNOC:3+SENDER:ZZZ+RECEIVER:ZZZ+260408:1200+REF123</div>
+    </div>
+  </div>
+
+  <div class="demo-section">
+    <h2>✅ Example: Successful Validation</h2>
+    <div class="success">
+      <strong>✅ Validation passed</strong>
+    </div>
+    <p style="color: #64748b; font-size: 0.9rem; margin-top: 10px;">
+      When validation passes, no segments are highlighted and a success message is shown.
+    </p>
+  </div>
+
+  <div class="demo-section">
+    <h2>🎯 How to Test</h2>
+    <ol style="line-height: 1.8;">
+      <li>Open <code style="background: #0f1117; padding: 2px 6px; border-radius: 3px;">index.html</code> in your browser</li>
+      <li>Paste test EDI message with errors (see DEMO.md for examples)</li>
+      <li>Click <strong>Validate</strong> button</li>
+      <li>Observe:
+        <ul style="margin-top: 5px;">
+          <li>Error segments highlighted with red borders in the editor</li>
+          <li>Error messages displayed below with styled suggestion boxes</li>
+          <li>Suggestions shown with 💡 icon and gray background</li>
+        </ul>
+      </li>
+      <li>Click <strong>Clear</strong> to remove all highlighting</li>
+    </ol>
+  </div>
+
+  <div style="margin-top: 40px; padding: 20px; background: rgba(99, 102, 241, 0.1); border-left: 4px solid #6366f1; border-radius: 4px;">
+    <strong style="color: #6366f1;">🚀 API Server Required</strong>
+    <p style="margin: 10px 0 0 0; color: #64748b;">
+      Make sure the FastAPI server is running: <code style="background: #0f1117; padding: 2px 6px; border-radius: 3px;">python -m uvicorn api:app --reload --port 8000</code>
+    </p>
+  </div>
+
+</body>
+</html>

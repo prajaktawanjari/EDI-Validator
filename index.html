@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDIFACT Validator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1a1d27;
+      --border:   #2d3148;
+      --accent:   #6366f1;
+      --accent-h: #4f52d1;
+      --error:    #f04646;
+      --warn:     #f59e0b;
+      --ok:       #22c55e;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --mono:     "JetBrains Mono", "Fira Mono", "Consolas", monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 64px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    header h1 span { color: var(--accent); }
+    header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.875rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 820px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 200px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus + #edi-highlight { border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    /* ── tag colour classes ─────────────────────────────────────────────── */
+    .tag-UNH { color: #60a5fa; }   /* blue   */
+    .tag-BGM { color: #4ade80; }   /* green  */
+    .tag-DTM { color: #fb923c; }   /* orange */
+    .tag-NAD { color: #c084fc; }   /* purple */
+    .tag-GID { color: #a8825a; }   /* brown  */
+    .tag-DGS { color: #f87171; }   /* red    */
+    .tag-UNT { color: #60a5fa; }   /* blue (paired with UNH) */
+    .tag-UNZ { color: #60a5fa; }   /* blue (interchange trailer) */
+    .tag-other { color: var(--text); }
+
+    /* ── error highlighting ────────────────────────────────────────────── */
+    .tag-error {
+      background: rgba(240, 70, 70, 0.15);
+      border: 2px solid var(--error);
+      border-radius: 4px;
+      padding: 2px 4px;
+      margin: -2px -4px;
+      display: inline-block;
+      box-shadow: 0 0 8px rgba(240, 70, 70, 0.3);
+    }
+
+    /* ── editor mirror ─────────────────────────────────────────────────── */
+    .editor-wrap {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .editor-wrap:focus-within { border-color: var(--accent); }
+
+    #edi-highlight {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      padding: 12px 14px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      pointer-events: none;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    #edi-input {
+      position: relative;
+      display: block;
+      width: 100%;
+      height: 200px;
+      background: transparent;
+      color: var(--text);
+      -webkit-text-fill-color: transparent;
+      caret-color: var(--text);
+      border: none;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      z-index: 1;
+    }
+    #edi-input::placeholder { color: var(--muted); }
+    /* make placeholder visible only when highlight layer is empty */
+    .editor-wrap.has-content #edi-input::placeholder { color: transparent; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 10px 22px;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+
+    #btn-validate {
+      background: var(--accent);
+      color: #fff;
+    }
+    #btn-validate:hover { background: var(--accent-h); }
+
+    #btn-format, #btn-clear {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    #btn-format:hover, #btn-clear:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── output ─────────────────────────────────────────────────────────── */
+
+    #output {
+      margin-top: 28px;
+      width: 100%;
+      max-width: 820px;
+      display: none;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 10px 10px 0 0;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-bottom: none;
+    }
+    .result-header.pass { background: #052e16; border-color: #166534; color: var(--ok); }
+    .result-header.fail { background: #1f0a0a; border-color: #7f1d1d; color: var(--error); }
+
+    .result-body {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0 0 10px 10px;
+      overflow: hidden;
+    }
+
+    .result-body.pass { border-color: #166534; }
+    .result-body.fail { border-color: #7f1d1d; }
+
+    .result-item {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .result-item:last-child { border-bottom: none; }
+
+    .result-item.error  { border-left: 3px solid var(--error); }
+    .result-item.warn   { border-left: 3px solid var(--warn); }
+    .result-item.info   { border-left: 3px solid var(--muted); }
+
+    .icon { font-size: 0.95rem; padding-top: 1px; }
+
+    .item-text .segment {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .item-text .message { color: var(--text); }
+    .item-text .suggestion {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-top: 6px;
+      padding: 8px 12px;
+      background: rgba(100, 116, 139, 0.1);
+      border-left: 3px solid #64748b;
+      border-radius: 4px;
+    }
+    .item-text .suggestion::before { content: "💡 "; }
+
+    .summary-bar {
+      display: flex;
+      gap: 20px;
+      padding: 10px 18px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--muted);
+      border-radius: 0 0 10px 10px;
+    }
+    .summary-bar span b { color: var(--text); }
+    .summary-bar .count-error b { color: var(--error); }
+    .summary-bar .count-warn  b { color: var(--warn); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>EDIFACT <span>Validator</span></h1>
+    <p>UN/EDIFACT IFTMIN — Bring rules · paste a raw EDI string and validate</p>
+  </header>
+
+  <div class="card">
+    <label for="edi-input">EDI Message</label>
+    <div class="editor-wrap">
+      <pre id="edi-highlight" aria-hidden="true"></pre>
+      <textarea id="edi-input"
+        placeholder="UNH+1+IFTMIN:D:04A:UN:BIG14'&#10;BGM+610+ORD001+9'&#10;DTM+137:20260408:102'&#10;..."
+        spellcheck="false"></textarea>
+    </div>
+    <div class="actions">
+      <button id="btn-validate">Validate</button>
+      <button id="btn-format">Format</button>
+      <button id="btn-clear">Clear</button>
+    </div>
+  </div>
+
+  <div id="output"></div>
+
+<script>
+// ─── Parser ──────────────────────────────────────────────────────────────────
+
+function splitRaw(text, delimiter) {
+  const parts = [];
+  let cur = '';
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '?' && i + 1 < text.length) {
+      cur += text[i] + text[i + 1];
+      i++;
+    } else if (text[i] === delimiter) {
+      parts.push(cur);
+      cur = '';
+    } else {
+      cur += text[i];
+    }
+  }
+  if (cur) parts.push(cur);
+  return parts;
+}
+
+function unescape(text) {
+  return text.replace(/\?(.)/g, '$1');
+}
+
+function parseElement(raw) {
+  const comps = splitRaw(raw, ':').map(unescape);
+  return comps.length === 1 ? comps[0] : comps;
+}
+
+function parseSegment(rawSeg) {
+  const parts = splitRaw(rawSeg.trim(), '+');
+  return { tag: parts[0], elements: parts.slice(1).map(parseElement) };
+}
+
+function parse(ediString) {
+  return splitRaw(ediString.trim(), "'")
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+    .map(parseSegment);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function mkError(segment, message, suggestion) {
+  return { segment, error: message, suggestion };
+}
+
+function scalar(v) { return Array.isArray(v) ? v[0] : v; }
+
+function getNad(segments, qualifier) {
+  return segments.filter(s => {
+    if (s.tag !== 'NAD' || !s.elements.length) return false;
+    return scalar(s.elements[0]) === qualifier;
+  });
+}
+
+function segHasValue(seg, value) {
+  return seg.elements.some(el =>
+    (Array.isArray(el) ? el : [el]).includes(value)
+  );
+}
+
+// ─── Rules ───────────────────────────────────────────────────────────────────
+
+const EXPECTED_TYPE = ['IFTMIN', 'D', '04A', 'UN', 'BIG14'];
+const VALID_BGM     = new Set(['610', '335', '730']);
+const UN_RE         = /^UN\d{4}$/;
+
+function ruleUnh(segs, errs) {
+  const unh = segs.find(s => s.tag === 'UNH');
+  if (!unh) { errs.push(mkError('UNH', 'UNH segment is missing.', 'Add UNH with message type IFTMIN:D:04A:UN:BIG14.')); return; }
+  if (unh.elements.length < 2) { errs.push(mkError('UNH', 'UNH is missing the message-type element.', 'Add composite IFTMIN:D:04A:UN:BIG14 as second element.')); return; }
+  let t = unh.elements[1];
+  if (!Array.isArray(t)) t = [t];
+  if (JSON.stringify(t) !== JSON.stringify(EXPECTED_TYPE))
+    errs.push(mkError('UNH', `UNH message type '${t.join(':')}' is wrong; expected '${EXPECTED_TYPE.join(':')}'.`, `Change to ${EXPECTED_TYPE.join(':')}.`));
+}
+
+function ruleUnt(segs, errs) {
+  const unhIdx = segs.findIndex(s => s.tag === 'UNH');
+  const untIdx = segs.findIndex(s => s.tag === 'UNT');
+  if (untIdx === -1) { errs.push(mkError('UNT', 'UNT segment is missing.', 'Add UNT with correct segment count.')); return; }
+  const els = segs[untIdx].elements;
+  if (!els.length) { errs.push(mkError('UNT', 'UNT is missing the segment-count element.', 'Add count as first element, e.g. UNT+5+1.')); return; }
+  const declared = parseInt(scalar(els[0]), 10);
+  if (isNaN(declared)) { errs.push(mkError('UNT', `UNT count '${scalar(els[0])}' is not a valid integer.`, 'Provide a numeric count.')); return; }
+  const start  = unhIdx !== -1 ? unhIdx : 0;
+  const actual = untIdx - start + 1;
+  if (declared !== actual)
+    errs.push(mkError('UNT', `UNT count is ${declared} but ${actual} segment(s) found (UNH–UNT inclusive).`, `Update to ${actual}.`));
+}
+
+function ruleBgm(segs, errs) {
+  const bgm = segs.find(s => s.tag === 'BGM');
+  if (!bgm) { errs.push(mkError('BGM', 'BGM segment is missing.', 'Add BGM with document code 610, 335, or 730.')); return; }
+  if (!bgm.elements.length) { errs.push(mkError('BGM', 'BGM is missing the document-code element.', 'Add code 610, 335, or 730.')); return; }
+  const code = scalar(bgm.elements[0]);
+  if (!VALID_BGM.has(code))
+    errs.push(mkError('BGM', `BGM code '${code}' is invalid; must be one of [335, 610, 730].`, 'Change to 610, 335, or 730.'));
+}
+
+function ruleDtm(segs, errs) {
+  const found = segs.some(s => {
+    if (s.tag !== 'DTM' || !s.elements.length) return false;
+    return scalar(s.elements[0]) === '137';
+  });
+  if (!found)
+    errs.push(mkError('DTM', 'DTM+137 (document date) is missing.', 'Add DTM+137:YYYYMMDD:102.'));
+}
+
+function ruleNadCz(segs, errs) {
+  if (!getNad(segs, 'CZ').length)
+    errs.push(mkError('NAD', 'NAD+CZ (sender) is missing.', 'Add NAD+CZ identifying the message sender.'));
+}
+
+function ruleNadCn(segs, errs) {
+  if (!getNad(segs, 'CN').length)
+    errs.push(mkError('NAD', 'NAD+CN (consignee) is missing.', 'Add NAD+CN identifying the consignee/receiver.'));
+}
+
+function ruleTodFp(segs, errs) {
+  const hasTp = segs.filter(s => s.tag === 'TOD').some(s => segHasValue(s, 'TP'));
+  if (hasTp && !getNad(segs, 'FP').length)
+    errs.push(mkError('NAD', "TOD has qualifier 'TP' but NAD+FP (freight payer) is missing.", 'Add NAD+FP identifying the freight payer.'));
+}
+
+function ruleGdsDgs(segs, errs) {
+  const gds11 = segs.some(s => {
+    if (s.tag !== 'GDS' || !s.elements.length) return false;
+    return scalar(s.elements[0]) === '11';
+  });
+  if (gds11 && !segs.some(s => s.tag === 'DGS'))
+    errs.push(mkError('DGS', 'Dangerous goods indicated (GDS+11) but DGS segment missing.', 'Add DGS with UN number and class.'));
+}
+
+function ruleDgsUn(segs, errs) {
+  segs.filter(s => s.tag === 'DGS').forEach(s => {
+    if (s.elements.length < 3) {
+      errs.push(mkError('DGS', 'DGS is missing the UN number (element index 2).', 'Add UN number, e.g. DGS+ADR+3:I+UN1090.')); return;
+    }
+    const un = scalar(s.elements[2]);
+    if (!UN_RE.test(un))
+      errs.push(mkError('DGS', `DGS UN number '${un}' is invalid; expected 'UN' + 4 digits.`, 'Use format UN followed by exactly 4 digits, e.g. UN1090.'));
+  });
+}
+
+function ruleDgsMea(segs, errs) {
+  if (segs.some(s => s.tag === 'DGS') && !segs.some(s => s.tag === 'MEA'))
+    errs.push(mkError('MEA', 'DGS present but MEA (measurement) is missing — weight/volume must be declared.', 'Add MEA+WT++KGM:500 or similar.'));
+}
+
+function ruleUnz(segs, errs) {
+  const hasUnb = segs.some(s => s.tag === 'UNB');
+  
+  // Only check for UNZ if UNB is present
+  if (!hasUnb) return;
+  
+  const unz = segs.find(s => s.tag === 'UNZ');
+  if (!unz) {
+    errs.push(mkError('UNZ', 'Missing UNZ (interchange trailer) — UNB is present but UNZ is missing.', 'Add UNZ segment at the end of the interchange, e.g. UNZ+1+REF123.'));
+    return;
+  }
+  if (unz.elements.length < 2) {
+    errs.push(mkError('UNZ', 'UNZ is missing required elements (message count and interchange reference).', 'Add UNZ with message count and reference, e.g. UNZ+1+REF123.'));
+  }
+}
+
+function validate(segs) {
+  const errs = [];
+  ruleUnh(segs, errs);
+  ruleUnt(segs, errs);
+  ruleUnz(segs, errs);
+  ruleBgm(segs, errs);
+  ruleDtm(segs, errs);
+  ruleNadCz(segs, errs);
+  ruleNadCn(segs, errs);
+  ruleTodFp(segs, errs);
+  ruleGdsDgs(segs, errs);
+  ruleDgsUn(segs, errs);
+  ruleDgsMea(segs, errs);
+  return errs;
+}
+
+// ─── Optional-segment warnings ───────────────────────────────────────────────
+
+const OPTIONAL = [
+  { tag: 'FTX', label: 'FTX (free text)' },
+  { tag: 'RFF', label: 'RFF (reference number)' },
+];
+
+function warnings(segs) {
+  const tags = new Set(segs.map(s => s.tag));
+  return OPTIONAL
+    .filter(o => !tags.has(o.tag))
+    .map(o => ({ label: `Missing optional ${o.label}` }));
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+
+function render(errors, warns) {
+  // Store errors for syntax highlighting
+  currentErrors = errors;
+  updateHighlight();
+  
+  const out   = document.getElementById('output');
+  const pass  = errors.length === 0;
+  const cls   = pass ? 'pass' : 'fail';
+  const icon  = pass ? '✅' : '❌';
+  const title = pass ? 'Validation passed' : `Validation failed — ${errors.length} error${errors.length !== 1 ? 's' : ''}`;
+
+  let items = '';
+
+  errors.forEach(e => {
+    items += `
+      <div class="result-item error">
+        <span class="icon">❌</span>
+        <div class="item-text">
+          <div class="segment">${esc(e.segment)}</div>
+          <div class="message">${esc(e.error)}</div>
+          <div class="suggestion">${esc(e.suggestion)}</div>
+        </div>
+      </div>`;
+  });
+
+  warns.forEach(w => {
+    items += `
+      <div class="result-item warn">
+        <span class="icon">⚠️</span>
+        <div class="item-text">
+          <div class="message">${esc(w.label)}</div>
+        </div>
+      </div>`;
+  });
+
+  out.innerHTML = `
+    <div class="result-header ${cls}">${icon} ${esc(title)}</div>
+    <div class="result-body ${cls}">
+      ${items || `<div class="result-item info"><span class="icon">✅</span><div class="item-text"><div class="message">No issues found.</div></div></div>`}
+      <div class="summary-bar">
+        <span class="count-error"><b>${errors.length}</b> error${errors.length !== 1 ? 's' : ''}</span>
+        <span class="count-warn"><b>${warns.length}</b> warning${warns.length !== 1 ? 's' : ''}</span>
+      </div>
+    </div>`;
+
+  out.style.display = 'block';
+  out.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+
+// ─── Syntax highlight mirror ───────────────────────────────────────────────────────
+
+const TAG_CLASSES = { UNH:'tag-UNH', UNT:'tag-UNT', UNZ:'tag-UNZ', BGM:'tag-BGM',
+                      DTM:'tag-DTM', NAD:'tag-NAD', GID:'tag-GID', DGS:'tag-DGS' };
+
+// Store current errors for highlighting
+let currentErrors = [];
+
+function highlightLine(line) {
+  // Extract tag (everything before first '+' or end-of-line)
+  const m = line.match(/^([A-Z]{2,3})/);
+  if (!m) return esc(line);
+  const tag   = m[1];
+  const cls   = TAG_CLASSES[tag] || 'tag-other';
+  const rest  = line.slice(tag.length);
+  
+  // Check if this segment has an error
+  const hasError = currentErrors.some(err => err.segment === tag);
+  const errorCls = hasError ? ' tag-error' : '';
+  
+  return `<span class="${cls}${errorCls}">${esc(tag)}</span>${esc(rest)}`;
+}
+
+function updateHighlight() {
+  const ta   = document.getElementById('edi-input');
+  const pre  = document.getElementById('edi-highlight');
+  const wrap = ta.closest('.editor-wrap');
+  const val  = ta.value;
+
+  wrap.classList.toggle('has-content', val.length > 0);
+
+  // Mirror textarea scrollHeight so pre stays in sync during resize
+  pre.style.minHeight = ta.offsetHeight + 'px';
+
+  pre.innerHTML = val
+    .split('\n')
+    .map(highlightLine)
+    .join('\n') + '\n'; // trailing newline prevents jitter on last line
+}
+
+// ─── Format ──────────────────────────────────────────────────────────────────
+
+function formatEdi(raw) {
+  // Split on ' keeping the terminator, one segment per line
+  return raw
+    .split("'")
+    .map(s => s.trim())
+    .filter(s => s.length > 0)
+    .join("'\n") + "'";
+}
+
+function applyFormat() {
+  const ta  = document.getElementById('edi-input');
+  const val = ta.value.trim();
+  if (!val) return;
+  ta.value = formatEdi(val);
+  updateHighlight();
+}
+
+// Auto-format on paste
+document.getElementById('edi-input').addEventListener('paste', () => {
+  setTimeout(() => { applyFormat(); updateHighlight(); }, 0);
+});
+
+// Live highlight on every keystroke
+document.getElementById('edi-input').addEventListener('input', updateHighlight);
+
+// Keep highlight height in sync when textarea is resized
+new ResizeObserver(updateHighlight).observe(document.getElementById('edi-input'));
+
+// ─── Events ──────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-format').addEventListener('click', applyFormat);
+
+document.getElementById('btn-validate').addEventListener('click', async () => {
+  const raw = document.getElementById('edi-input').value.trim();
+  if (!raw) return;
+  
+  // Call API validation
+  try {
+    const response = await fetch('http://127.0.0.1:8000/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        edi: raw,
+        validate_interchange: true
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    const errs = result.errors || [];
+    const warns = result.warnings || [];
+    
+    render(errs, warns);
+  } catch (err) {
+    const errMsg = [{
+      segment: 'API',
+      error: `Failed to connect to API: ${err.message}`,
+      suggestion: 'Make sure the API server is running at http://127.0.0.1:8000'
+    }];
+    render(errMsg, []);
+  }
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  const ta = document.getElementById('edi-input');
+  ta.value = '';
+  currentErrors = []; // Clear error highlighting
+  updateHighlight();
+  const out = document.getElementById('output');
+  out.innerHTML = '';
+  out.style.display = 'none';
+});
+
+document.getElementById('edi-input').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    document.getElementById('btn-validate').click();
+  }
+});
+
+// Initialize highlight on page load
+updateHighlight();
+</script>
+</body>
+</html>

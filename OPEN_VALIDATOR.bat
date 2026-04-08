@@ -1,0 +1,3 @@
+@echo off
+echo Opening EDI Validator in your default browser...
+start "" "index.html"

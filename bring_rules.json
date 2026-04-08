@@ -1,0 +1,5 @@
+{
+  "mandatory_segments": ["UNH", "BGM", "DTM", "CNT"],
+  "nad_required": ["CZ", "CN"],
+  "dgs_required_if_gds": true
+}

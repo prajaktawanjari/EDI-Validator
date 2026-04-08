@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Test - EDI Validator</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #0f1117;
+      color: #e2e8f0;
+    }
+    h1 { color: #6366f1; }
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px 5px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    button:hover { background: #4f52d1; }
+    textarea {
+      width: 100%;
+      min-height: 200px;
+      background: #1a1d27;
+      color: #e2e8f0;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+    .result {
+      background: #1a1d27;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    .success { border-color: #22c55e; }
+    .error { border-color: #f04646; }
+  </style>
+</head>
+<body>
+  <h1>🧪 API Test - EDI Validator</h1>
+  
+  <h3>Test 1: Message without UNB/UNZ (should FAIL with strict validation)</h3>
+  <textarea id="test1">UNH+1+IFTMIN:D:04A:UN:BIG14'BGM+610+ORD001+9'DTM+137:20260408:102'NAD+CZ+9SENDER:::91'NAD+CN+9CONSIGNEE:::91'GID+1+7:PK'CNT+7:10:KGM'UNT+8+1'</textarea>
+  <button onclick="test('test1')">Test (validate_interchange: true)</button>
+  <div id="result1" class="result" style="display:none;"></div>
+
+  <h3>Test 2: Complete message with UNB/UNZ (should PASS)</h3>
+  <textarea id="test2">UNB+UNOC:3+SENDER:ZZZ+RECEIVER:ZZZ+260408:1200+REF123'UNH+1+IFTMIN:D:04A:UN:BIG14'BGM+610+ORD001+9'DTM+137:20260408:102'NAD+CZ+9SENDER:::91'NAD+CN+9CONSIGNEE:::91'GID+1+7:PK'CNT+7:10:KGM'UNT+8+1'UNZ+1+REF123'</textarea>
+  <button onclick="test('test2')">Test (validate_interchange: true)</button>
+  <div id="result2" class="result" style="display:none;"></div>
+
+  <h3>Test 3: Reference mismatch (should FAIL)</h3>
+  <textarea id="test3">UNB+UNOC:3+SENDER:ZZZ+RECEIVER:ZZZ+260408:1200+REF123'UNH+1+IFTMIN:D:04A:UN:BIG14'BGM+610+ORD001+9'DTM+137:20260408:102'NAD+CZ+9SENDER:::91'NAD+CN+9CONSIGNEE:::91'GID+1+7:PK'CNT+7:10:KGM'UNT+8+1'UNZ+1+REF999'</textarea>
+  <button onclick="test('test3')">Test (validate_interchange: true)</button>
+  <div id="result3" class="result" style="display:none;"></div>
+
+  <script>
+    async function test(id) {
+      const textarea = document.getElementById(id);
+      const resultDiv = document.getElementById('result' + id.slice(-1));
+      const edi = textarea.value.trim();
+
+      resultDiv.textContent = '⏳ Sending request to API...';
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'result';
+
+      try {
+        const response = await fetch('http://127.0.0.1:8000/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            edi: edi,
+            validate_interchange: true
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        resultDiv.className = result.status === 'PASS' ? 'result success' : 'result error';
+        resultDiv.textContent = JSON.stringify(result, null, 2);
+      } catch (err) {
+        resultDiv.className = 'result error';
+        resultDiv.textContent = `❌ Error: ${err.message}\n\nMake sure the API server is running:\npython -m uvicorn api:app --reload --port 8000`;
+      }
+    }
+  </script>
+</body>
+</html>
